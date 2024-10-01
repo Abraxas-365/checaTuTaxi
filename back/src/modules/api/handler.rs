@@ -113,3 +113,11 @@ pub async fn generate_image_upload_url(
         "public_url": public_url
     })))
 }
+
+pub async fn get_complaint_with_images(
+    service: web::Data<Arc<Service>>,
+    complaint_id: web::Path<i32>,
+) -> Result<HttpResponse, ApiError> {
+    let complaint_with_images = service.get_complaint_with_images(*complaint_id).await?;
+    Ok(HttpResponse::Ok().json(complaint_with_images))
+}

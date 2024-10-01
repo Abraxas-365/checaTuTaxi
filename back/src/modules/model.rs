@@ -58,6 +58,7 @@ pub struct Complaint {
     pub location_id: i32,
     pub taxi_application: String,
     pub description: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl Complaint {
@@ -73,6 +74,7 @@ impl Complaint {
             location_id,
             taxi_application: taxi_application.to_string(),
             description: description.to_string(),
+            created_at: chrono::Utc::now(),
         }
     }
 }
@@ -116,4 +118,10 @@ pub struct DriverWithDetails {
 pub struct DriverWithImages {
     pub driver: Driver,
     pub images: Vec<DriverImage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ComplaintWithImages {
+    pub complaint: Complaint,
+    pub images: Vec<ComplaintImage>,
 }

@@ -1,7 +1,7 @@
 use super::{
     port::{BucketPort, DBRepository},
-    Complaint, ComplaintImage, Driver, DriverImage, DriverWithDetails, DriverWithImages,
-    NewComplaint,
+    Complaint, ComplaintImage, ComplaintWithImages, Driver, DriverImage, DriverWithDetails,
+    DriverWithImages, NewComplaint,
 };
 use crate::{
     error::ApiError,
@@ -47,6 +47,7 @@ impl Service {
             location_id: new_complaint.location_id,
             taxi_application: new_complaint.taxi_application,
             description: new_complaint.description,
+            created_at: chrono::Utc::now(),
         };
         let created_complaint = self.db_repo.create_complaint(&complaint).await?;
 
@@ -196,5 +197,28 @@ impl Service {
         let file_name = format!("{}/{}", prefix, uuid::Uuid::new_v4());
 
         self.bucket_repo.generate_upload_url(&file_name).await
+    }
+
+    pub async fn get_complaint_with_images(
+        &self,
+        complaint_id: i32,
+    ) -> Result<ComplaintWithImages, ApiError> {
+        let complaint = self.db_repo.get_complaint_by_id(complaint_id).await?;
+
+        let images = self
+            .db_repo
+            .get_complaint_images(
+                complaint_id,
+                &Pagination {
+                    page: 1,
+                    per_page: 100, // Adjust this value as needed
+                },
+            )
+            .await?;
+
+        Ok(ComplaintWithImages {
+            complaint,
+            images: images.items,
+        })
     }
 }

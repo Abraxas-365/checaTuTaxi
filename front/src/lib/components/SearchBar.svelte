@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Car } from 'lucide-svelte';
+    import { goto } from '$app/navigation';
 
     interface Driver {
         id: number;
@@ -71,6 +72,10 @@
         }
         isFocused = false;
     }
+
+    function handleDriverSelect(driverId: number) {
+        goto(`/${driverId}/driver`);
+    }
 </script>
 
 <div class="relative w-full max-w-2xl mx-auto">
@@ -120,7 +125,7 @@
             </button>
         </div>
         {#if isFocused && (isLoading || searchResults.length > 0)}
-            <div class="absolute left-0 right-0 top-full bg-slate-800 border border-yellow-500 rounded-b-lg shadow-lg z-10 max-h-72 overflow-y-auto mt-1 transition-all duration-300 ease-in-out">
+            <div class="search-dropdown absolute left-0 right-0 top-full bg-slate-800 border border-yellow-500 rounded-b-lg shadow-lg z-10 max-h-72 overflow-y-auto mt-1 transition-all duration-300 ease-in-out">
                 {#if isLoading}
                     <div class="flex items-center justify-center p-4">
                         <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-yellow-500"></div>
@@ -131,6 +136,9 @@
                     {#each searchResults as result, index}
                         <div 
                             class="p-3 text-white cursor-pointer hover:bg-slate-700 focus:outline-none focus:bg-slate-700 transition-colors duration-150 ease-in-out {index !== searchResults.length - 1 ? 'border-b border-slate-600' : ''}"
+                            on:click={() => handleDriverSelect(result.driver.id)}
+                            on:keydown={(e) => e.key === 'Enter' && handleDriverSelect(result.driver.id)}
+                            tabindex="0"
                         >
                             <div class="flex items-center">
                                 {#if result.images.length > 0}
