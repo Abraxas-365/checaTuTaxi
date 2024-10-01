@@ -1,17 +1,14 @@
-use std::sync::Arc;
-
-use futures::{future, TryFutureExt};
-
-use crate::{
-    error::ApiError,
-    utils::database::{PaginatedRecord, Pagination},
-};
-
 use super::{
     port::{BucketPort, DBRepository},
     Complaint, ComplaintImage, Driver, DriverImage, DriverWithDetails, DriverWithImages,
     NewComplaint,
 };
+use crate::{
+    error::ApiError,
+    utils::database::{PaginatedRecord, Pagination},
+};
+use futures::{future, TryFutureExt};
+use std::sync::Arc;
 
 pub struct Service {
     db_repo: Arc<dyn DBRepository>,
@@ -25,9 +22,7 @@ impl Service {
             bucket_repo,
         }
     }
-}
 
-impl Service {
     pub async fn create_complaint(
         &self,
         new_complaint: NewComplaint,
@@ -73,7 +68,10 @@ impl Service {
     async fn get_or_create_driver(&self, new_complaint: &NewComplaint) -> Result<Driver, ApiError> {
         match self
             .db_repo
-            .get_driver_by_license_plate(&new_complaint.taxi_license_plate)
+            .get_driver_by_name_and_license_plate(
+                &new_complaint.taxi_driver_name,
+                &new_complaint.taxi_license_plate,
+            )
             .await
         {
             Ok(driver) => Ok(driver),
@@ -108,7 +106,6 @@ impl Service {
             .await
     }
 
-    // New method to get driver with complaints and images
     pub async fn get_driver_with_details(
         &self,
         driver_id: i32,

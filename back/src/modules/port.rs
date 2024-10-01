@@ -64,6 +64,12 @@ pub trait DBRepository: Send + Sync {
         &self,
         pagination: &Pagination,
     ) -> Result<PaginatedRecord<Location>, ApiError>;
+
+    async fn get_driver_by_name_and_license_plate(
+        &self,
+        name: &str,
+        license_plate: &str,
+    ) -> Result<Driver, ApiError>;
 }
 
 #[async_trait]

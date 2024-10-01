@@ -390,4 +390,22 @@ impl DBRepository for PostgresRepository {
             pagination.per_page,
         ))
     }
+    async fn get_driver_by_name_and_license_plate(
+        &self,
+        name: &str,
+        license_plate: &str,
+    ) -> Result<Driver, ApiError> {
+        sqlx::query_as::<_, Driver>("SELECT * FROM drivers WHERE name = $1 AND license_plate = $2")
+            .bind(name)
+            .bind(license_plate)
+            .fetch_one(&*self.pg_pool)
+            .await
+            .map_err(|err| match err {
+                sqlx::Error::RowNotFound => ApiError::NotFound(format!(
+                    "Driver with name '{}' and license plate '{}' not found",
+                    name, license_plate
+                )),
+                _ => ApiError::DatabaseError(err),
+            })
+    }
 }
