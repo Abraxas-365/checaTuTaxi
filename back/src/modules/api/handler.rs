@@ -121,3 +121,30 @@ pub async fn get_complaint_with_images(
     let complaint_with_images = service.get_complaint_with_images(*complaint_id).await?;
     Ok(HttpResponse::Ok().json(complaint_with_images))
 }
+
+#[derive(Deserialize)]
+pub struct SearchDriversWithDetailsQuery {
+    pub query: String,
+    pub page: u32,
+    pub per_page: u32,
+    pub complaints_page: u32,
+    pub complaints_per_page: u32,
+}
+
+pub async fn search_drivers_with_details(
+    service: web::Data<Arc<Service>>,
+    web::Query(query): web::Query<SearchDriversWithDetailsQuery>,
+) -> Result<HttpResponse, ApiError> {
+    let pagination = Pagination {
+        page: query.page,
+        per_page: query.per_page,
+    };
+    let complaints_pagination = Pagination {
+        page: query.complaints_page,
+        per_page: query.complaints_per_page,
+    };
+    let drivers = service
+        .search_drivers_with_details(&query.query, &pagination, &complaints_pagination)
+        .await?;
+    Ok(HttpResponse::Ok().json(drivers))
+}

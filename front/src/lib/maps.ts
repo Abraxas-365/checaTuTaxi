@@ -62,10 +62,10 @@
 
 
 export const taxiApps = [
-        { name: 'Uber', icon: '/icons/uber.svg' },
-        { name: 'Cabify', icon: '/icons/cabify.svg' },
-        { name: 'Lyft', icon: '/icons/lyft.svg' },
-        { name: 'DiDi', icon: '/icons/didi.svg' },
-        { name: 'InDriver', icon: '/icons/indriver.svg' },
-        { name: 'Beat', icon: '/icons/beat.svg' },
-    ];
+    { name: 'Uber', icon: 'https://miro.medium.com/v2/resize:fit:1100/format:webp/1*xSNj61wUlEl2VGGnlmqELg.jpeg' },
+    { name: 'Cabify', icon: 'https://cabify.com/favicon.ico' },
+    { name: 'Lyft', icon: 'https://assets.website-files.com/5a1ce7bd9c7ab10001c4ab0d/5a1ce7bd9c7ab10001c4ad9f_lyft-favicon.png' },
+    { name: 'DiDi', icon: 'https://website.didiglobal.com/favicon.ico' },
+    { name: 'InDriver', icon: 'https://indriver.com/favicon.ico' },
+    { name: 'Beat', icon: 'https://thebeat.co/favicon.ico' },
+];

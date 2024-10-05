@@ -1,7 +1,8 @@
 use actix_web::web;
 use handler::{
     create_complaint, generate_image_upload_url, get_complaint_with_images, get_driver,
-    get_driver_complaints, get_driver_with_details, search_drivers, search_drivers_with_images,
+    get_driver_complaints, get_driver_with_details, search_drivers, search_drivers_with_details,
+    search_drivers_with_images,
 };
 
 mod handler;
@@ -31,6 +32,10 @@ pub fn config(cfg: &mut web::ServiceConfig) {
             .route(
                 "/drivers/search/with-images",
                 web::get().to(search_drivers_with_images),
+            )
+            .route(
+                "/drivers/search/with-details",
+                web::get().to(search_drivers_with_details),
             ),
     );
 }

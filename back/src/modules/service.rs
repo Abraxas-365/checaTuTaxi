@@ -221,4 +221,42 @@ impl Service {
             images: images.items,
         })
     }
+
+    pub async fn search_drivers_with_details(
+        &self,
+        query: &str,
+        pagination: &Pagination,
+        complaints_pagination: &Pagination,
+    ) -> Result<PaginatedRecord<DriverWithDetails>, ApiError> {
+        let drivers = self.db_repo.search_drivers(query, pagination).await?;
+
+        let drivers_with_details: Result<Vec<DriverWithDetails>, ApiError> =
+            future::try_join_all(drivers.items.into_iter().map(|driver| async {
+                let complaints = self
+                    .db_repo
+                    .get_complaints_for_driver(driver.id, complaints_pagination)
+                    .await?;
+                let driver_images = self
+                    .db_repo
+                    .get_driver_images(
+                        driver.id,
+                        &Pagination {
+                            page: 1,
+                            per_page: 100,
+                        },
+                    )
+                    .await?;
+
+                Ok(DriverWithDetails {
+                    driver,
+                    complaints,
+                    images: driver_images.items,
+                })
+            }))
+            .await;
+
+        drivers_with_details.map(|details| {
+            PaginatedRecord::new(details, drivers.total_items, drivers.page, drivers.per_page)
+        })
+    }
 }
