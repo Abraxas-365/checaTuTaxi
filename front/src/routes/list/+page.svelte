@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
+    import { goto } from '$app/navigation';
     import DriverCard from '$lib/components/DriverCard.svelte';
     import { fly } from 'svelte/transition';
     import { taxiApps } from '$lib/maps';
@@ -52,8 +53,6 @@
     let hasMore = true;
     let searchQuery = '';
     let observer: IntersectionObserver;
-
-    const DEFAULT_PHOTO_URL = '/default-driver-photo.png';
 
     onMount(async () => {
         searchQuery = $page.url.searchParams.get('query') || '';
@@ -134,14 +133,17 @@
                         in:fly={{ y: 20, duration: 400, delay: 200 * (index % 10) }} 
                         class="flex justify-center p-4"
                     >
-                        <div class="w-full max-w-sm bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                        <div 
+                            class="w-full max-w-sm bg-gray-800 rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform duration-300 hover:scale-105"
+                            on:click={() => goto(`/${driverDetails.driver.id}/driver`)}
+                        >
                             <DriverCard
                                 driverData={{
                                     name: driverDetails.driver.name,
                                     licensePlate: driverDetails.driver.license_plate,
                                     reportCount: driverDetails.complaints.total_items,
                                     reportedApps: getReportedApps(driverDetails.complaints.items),
-                                    photoUrl: driverDetails.images[0]?.image_url || DEFAULT_PHOTO_URL
+                                    photoUrl: driverDetails.images[0]?.image_url || null
                                 }}
                             />
                         </div>

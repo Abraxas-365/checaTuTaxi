@@ -1,262 +1,179 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import DriverCard from '$lib/components/DriverCard.svelte';
-	import { fly } from 'svelte/transition';
-	import { taxiApps } from '$lib/maps';
+    import { Car } from 'lucide-svelte';
+    import { goto } from '$app/navigation';
 
-	interface Driver {
-		id: number;
-		name: string;
-		license_plate: string;
-	}
+    interface Driver {
+        id: number;
+        name: string;
+        license_plate: string;
+    }
 
-	interface Complaint {
-		id: number;
-		driver_id: number;
-		taxi_application: string;
-		description: string;
-		created_at: string;
-	}
+    interface Image {
+        id: number;
+        driver_id: number;
+        image_url: string;
+    }
 
-	interface Image {
-		id: number;
-		driver_id: number;
-		image_url: string;
-	}
+    interface SearchResult {
+        driver: Driver;
+        images: Image[];
+    }
 
-	interface DriverDetails {
-		driver: Driver;
-		complaints: {
-			items: Complaint[];
-			total_items: number;
-			page: number;
-			per_page: number;
-			total_pages: number;
-		};
-		images: Image[];
-	}
+    interface ApiResponse {
+        items: SearchResult[];
+        total_items: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+    }
 
-	interface SearchResponse {
-		items: DriverDetails[];
-		total_items: number;
-		page: number;
-		per_page: number;
-		total_pages: number;
-	}
+    let searchQuery = '';
+    let searchResults: SearchResult[] = [];
+    let isLoading = false;
+    let isFocused = false;
 
-	let drivers: DriverDetails[] = [];
-	let isLoading = false;
-	let error: string | null = null;
-	let currentPage = 1;
-	let hasMore = true;
-	let searchQuery = '';
-	let observer: IntersectionObserver;
-	let showScrollTop = false;
+    async function fetchSearchResults(query: string) {
+        if (!query) {
+            searchResults = [];
+            return;
+        }
 
-	const DEFAULT_PHOTO_SVG = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-full h-full text-gray-400">
-            <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clip-rule="evenodd" />
-        </svg>
-    `;
+        isLoading = true;
+        try {
+            const response = await fetch(`http://localhost:4200/api/taxi/drivers/search/with-images?query=${query}&page=1&per_page=10`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data: ApiResponse = await response.json();
+            searchResults = data.items || [];
+        } catch (error) {
+            console.error('Error fetching search results:', error);
+            searchResults = [];
+        } finally {
+            isLoading = false;
+        }
+    }
 
-	onMount(async () => {
-		searchQuery = $page.url.searchParams.get('query') || '';
-		if (searchQuery) {
-			await fetchDrivers(searchQuery, currentPage);
-		} else {
-			error = 'No search query provided.';
-		}
+    function handleSearch(event: Event) {
+        event.preventDefault();
+        if (searchQuery.trim()) {
+            goto(`/list?query=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    }
 
-		setupIntersectionObserver();
-	});
+    $: fetchSearchResults(searchQuery);
 
-	function setupIntersectionObserver() {
-		observer = new IntersectionObserver(
-			(entries) => {
-				if (entries[0].isIntersecting && !isLoading && hasMore) {
-					loadMoreDrivers();
-				}
-			},
-			{ threshold: 1 }
-		);
+    function handleFocus() {
+        isFocused = true;
+    }
 
-		const sentinel = document.querySelector('#sentinel');
-		if (sentinel) observer.observe(sentinel);
-	}
+    function handleBlur(event: FocusEvent) {
+        const relatedTarget = event.relatedTarget as HTMLElement;
+        if (relatedTarget && relatedTarget.closest('.search-dropdown')) {
+            return;
+        }
+        isFocused = false;
+    }
 
-	async function fetchDrivers(query: string, page: number) {
-		isLoading = true;
-		error = null;
-		try {
-			const response = await fetch(
-				`http://localhost:4200/api/taxi/drivers/search/with-details?query=${encodeURIComponent(query)}&page=${page}&per_page=10&complaints_page=1&complaints_per_page=5`
-			);
-			if (!response.ok) {
-				throw new Error('Network response was not ok');
-			}
-			const data: SearchResponse = await response.json();
-			drivers = page === 1 ? data.items : [...drivers, ...data.items];
-			hasMore = data.page < data.total_pages;
-			currentPage = data.page;
-		} catch (err) {
-			console.error('Error fetching drivers:', err);
-			error = 'An error occurred while fetching the data. Please try again.';
-		} finally {
-			isLoading = false;
-		}
-	}
+    function handleDriverSelect(driverId: number) {
+        goto(`/${driverId}/driver`);
+    }
 
-	function getReportedApps(complaints: Complaint[]): { name: string; logo: string }[] {
-		const uniqueApps = new Set(complaints.map((c) => c.taxi_application));
-		return Array.from(uniqueApps).map((app) => {
-			const taxiApp = taxiApps.find((ta) => ta.name.toLowerCase() === app.toLowerCase());
-			return {
-				name: app,
-				logo: taxiApp ? taxiApp.icon : '/default-app-logo.png'
-			};
-		});
-	}
-
-	function loadMoreDrivers() {
-		if (searchQuery && hasMore) {
-			fetchDrivers(searchQuery, currentPage + 1);
-		}
-	}
-
-	function scrollToTop() {
-		window.scrollTo({ top: 0, behavior: 'smooth' });
-	}
-
-	function handleScroll() {
-		showScrollTop = window.pageYOffset > 300;
-	}
+    function handleKeyDown(event: KeyboardEvent) {
+        if (event.key === 'Enter' && searchQuery.trim()) {
+            event.preventDefault();
+            goto(`/list?query=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    }
 </script>
 
-<svelte:head>
-	<title>Driver Search Results</title>
-</svelte:head>
+<div class="relative w-full max-w-2xl mx-auto">
+    <form on:submit={handleSearch} class="relative">
+        <div class="relative">
+            <input
+                type="text"
+                id="search-input"
+                bind:value={searchQuery}
+                on:input={() => fetchSearchResults(searchQuery)}
+                on:focus={handleFocus}
+                on:blur={handleBlur}
+                on:keydown={handleKeyDown}
+                autocomplete="off"
+                class="peer w-full rounded-lg border-2 border-yellow-500 bg-slate-800 px-4 py-3 pr-12 text-sm text-white placeholder-transparent transition duration-300 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50 sm:text-base md:text-lg"
+                placeholder="Buscar"
+            />
+            <label
+                for="search-input"
+                class="absolute left-4 top-1 text-xs text-yellow-400 transition-all duration-300 transform origin-left 
+               peer-placeholder-shown:text-slate-400 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-placeholder-shown:scale-100
+               peer-focus:top-1 peer-focus:text-xs peer-focus:text-yellow-400 peer-focus:scale-75
+               peer-[:not(:placeholder-shown)]:top-1 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-yellow-400 peer-[:not(:placeholder-shown)]:scale-75"
+            >
+                <span class="block sm:hidden">Buscar</span>
+                <span class="hidden sm:block md:hidden">Buscar taxista o placa</span>
+                <span class="hidden md:block">Ingrese nombre del taxista o número de placa</span>
+            </label>
+            <button
+                type="submit"
+                class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-yellow-500 p-2 text-slate-900 transition duration-300 hover:bg-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:ring-offset-2 focus:ring-offset-slate-800"
+            >
+                <span class="sr-only">Buscar</span>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    class="h-5 w-5"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                </svg>
+            </button>
+        </div>
+        {#if isFocused && (isLoading || searchResults.length > 0)}
+            <div class="search-dropdown absolute left-0 right-0 top-full bg-slate-800 border border-yellow-500 rounded-b-lg shadow-lg z-10 max-h-72 overflow-y-auto mt-1 transition-all duration-300 ease-in-out">
+                {#if isLoading}
+                    <div class="flex items-center justify-center p-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-yellow-500"></div>
+                    </div>
+                {/if}
 
-<svelte:window on:scroll={handleScroll} />
-
-<section class="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 py-12">
-	<header class="mb-12 bg-gray-900 py-6">
-		<div class="container mx-auto px-4">
-			<h1 class="text-center text-4xl font-bold text-yellow-400">Driver Search Results</h1>
-			<p class="mt-2 text-center text-gray-400">Showing results for: {searchQuery}</p>
-		</div>
-	</header>
-
-	<div class="container mx-auto px-4">
-		<div class="mx-auto mb-12 max-w-2xl">
-			<form on:submit|preventDefault={() => fetchDrivers(searchQuery, 1)} class="flex">
-				<input
-					bind:value={searchQuery}
-					type="text"
-					placeholder="Search drivers..."
-					class="flex-grow rounded-l-lg bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
-				/>
-				<button
-					type="submit"
-					class="rounded-r-lg bg-yellow-400 px-6 py-2 text-gray-900 transition duration-300 hover:bg-yellow-300"
-				>
-					Search
-				</button>
-			</form>
-		</div>
-
-		{#if isLoading && drivers.length === 0}
-			<div class="mt-16 flex justify-center">
-				<div
-					class="h-16 w-16 animate-spin rounded-full border-b-4 border-t-4 border-yellow-400"
-				></div>
-			</div>
-		{:else if drivers.length === 0 && !isLoading}
-			<p
-				class="mx-auto max-w-md rounded-lg bg-gray-700 bg-opacity-50 p-6 text-center text-lg text-gray-300"
-			>
-				No drivers found matching "{searchQuery}". Try a different search term.
-			</p>
-		{:else}
-			<div
-				class="mx-auto grid max-w-7xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-			>
-				{#each drivers as driverDetails, index (driverDetails.driver.id)}
-					<div
-						in:fly={{ y: 20, duration: 400, delay: 200 * (index % 10) }}
-						class="flex h-full justify-center p-4"
-					>
-						<div
-							class="h-full w-full max-w-sm overflow-hidden rounded-lg border border-gray-700 bg-gradient-to-br from-gray-800 to-gray-900 shadow-lg transition duration-300 hover:border-yellow-400"
-						>
-							<DriverCard
-								driverData={{
-									name: driverDetails.driver.name,
-									licensePlate: driverDetails.driver.license_plate,
-									reportCount: driverDetails.complaints.total_items,
-									reportedApps: getReportedApps(driverDetails.complaints.items),
-									photoUrl: driverDetails.images[0]?.image_url || null
-								}}
-							/>
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			{#if isLoading}
-				<div class="mt-16 flex justify-center">
-					<div
-						class="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-yellow-400"
-					></div>
-				</div>
-			{/if}
-
-			{#if hasMore && !isLoading}
-				<div class="mt-12 flex justify-center">
-					<button
-						on:click={loadMoreDrivers}
-						class="rounded-lg bg-yellow-400 px-6 py-3 font-semibold text-gray-900 transition duration-300 hover:bg-yellow-300"
-					>
-						Load More Results
-					</button>
-				</div>
-			{/if}
-
-			<div id="sentinel" class="mt-16 h-4"></div>
-		{/if}
-
-		{#if error}
-			<div class="mx-auto mt-12 max-w-md rounded-lg bg-red-900 bg-opacity-50 p-6">
-				<p class="mb-4 text-center text-lg text-red-400">{error}</p>
-				<button
-					on:click={() => fetchDrivers(searchQuery, 1)}
-					class="w-full rounded bg-red-500 px-4 py-2 text-white transition duration-300 hover:bg-red-600"
-				>
-					Retry
-				</button>
-			</div>
-		{/if}
-	</div>
-</section>
-
-{#if showScrollTop}
-	<button
-		on:click={scrollToTop}
-		class="fixed bottom-8 right-8 rounded-full bg-yellow-400 p-3 text-gray-900 shadow-lg transition duration-300 hover:bg-yellow-300"
-	>
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="h-6 w-6"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M5 10l7-7m0 0l7 7m-7-7v18"
-			/>
-		</svg>
-	</button>
-{/if}
+                {#if searchResults.length > 0}
+                    {#each searchResults as result, index}
+                        <div 
+                            class="p-3 text-white cursor-pointer hover:bg-slate-700 focus:outline-none focus:bg-slate-700 transition-colors duration-150 ease-in-out {index !== searchResults.length - 1 ? 'border-b border-slate-600' : ''}"
+                            on:click={() => handleDriverSelect(result.driver.id)}
+                            on:keydown={(e) => e.key === 'Enter' && handleDriverSelect(result.driver.id)}
+                            tabindex="0"
+                        >
+                            <div class="flex items-center">
+                                {#if result.images.length > 0}
+                                    <img src={result.images[0].image_url} alt={result.driver.name} class="w-12 h-12 rounded-full object-cover mr-3" />
+                                {:else}
+                                    <div class="bg-yellow-500 rounded-full p-2 mr-3">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                {/if}
+                                <div>
+                                    <p class="font-semibold">{result.driver.name}</p>
+                                    <div class="flex items-center text-sm text-slate-400">
+                                        <Car class="w-4 h-4 mr-1" />
+                                        <p>{result.driver.license_plate}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {/each}
+                {:else if searchQuery && !isLoading}
+                    <p class="p-3 text-slate-400 text-center">No se encontraron resultados.</p>
+                {/if}
+            </div>
+        {/if}
+    </form>
+</div>
